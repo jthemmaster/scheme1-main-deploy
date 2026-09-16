@@ -1,0 +1,461 @@
+const CDX_HEADER = "VjCD0100";
+const CDX_HEADER_LEN = 28;
+const CDX_OBJ_FRAGMENT = 0x8003;
+const CDX_OBJ_NODE = 0x8004;
+const CDX_OBJ_BOND = 0x8005;
+const CDX_OBJ_TEXT = 0x8006;
+const CDX_PROP_2D = 0x0200;
+const CDX_PROP_ELEMENT = 0x0402;
+const CDX_PROP_CHARGE = 0x0421;
+const CDX_PROP_HYDROGENS = 0x042b;
+const CDX_PROP_BOND_ORDER = 0x0600;
+const CDX_PROP_BOND_DISPLAY = 0x0601;
+const CDX_PROP_BOND_BEGIN = 0x0604;
+const CDX_PROP_BOND_END = 0x0605;
+const CDX_PROP_TEXT = 0x0700;
+
+const SYMBOLS = {
+  1: "H",
+  2: "He",
+  3: "Li",
+  4: "Be",
+  5: "B",
+  6: "C",
+  7: "N",
+  8: "O",
+  9: "F",
+  10: "Ne",
+  11: "Na",
+  12: "Mg",
+  13: "Al",
+  14: "Si",
+  15: "P",
+  16: "S",
+  17: "Cl",
+  35: "Br",
+  53: "I",
+};
+
+const ARROW_TEXT = /^(?:→|->|⇒|⟶|>>)$/;
+
+const BOND_DISPLAY = {
+  0: "solid",
+  1: "dash",
+  2: "hash",
+  3: "hash",
+  4: "hash",
+  5: "bold",
+  6: "wedge",
+  7: "wedge",
+};
+
+function emptyDoc(format, message) {
+  return {
+    status: "error",
+    kind: "chemdraw",
+    format,
+    atoms: [],
+    bonds: [],
+    texts: [],
+    fragments: [],
+    reactants: [],
+    products: [],
+    reagents: [],
+    conditions: [],
+    message,
+  };
+}
+
+function toBytes(value) {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  if (typeof value === "string") return new TextEncoder().encode(value);
+  return new Uint8Array();
+}
+
+function looksLikeCdx(bytes) {
+  if (bytes.length < 8) return false;
+  for (let i = 0; i < 8; i += 1) {
+    if (bytes[i] !== CDX_HEADER.charCodeAt(i)) return false;
+  }
+  return true;
+}
+
+function decodeUtf8(bytes) {
+  return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+}
+
+function looksLikeCdxml(bytes, name) {
+  const head = decodeUtf8(bytes.subarray(0, Math.min(bytes.length, 800)));
+  if (/<CDXML\b/i.test(head)) return true;
+  return /\.cdxml$/i.test(name) && /<CDXML\b/i.test(decodeUtf8(bytes));
+}
+
+function symbolFor(element) {
+  return SYMBOLS[element] || `El${element}`;
+}
+
+function parsePoint(raw) {
+  const parts = String(raw ?? "")
+    .trim()
+    .split(/\s+/);
+  const x = Number(parts[0]);
+  const y = Number(parts[1]);
+  return {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function decodeEntities(value) {
+  return String(value)
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&amp;", "&");
+}
+
+function parseAttrs(raw) {
+  const attrs = {};
+  const re = /([A-Za-z_][\w:.-]*)\s*=\s*"([^"]*)"/g;
+  let match;
+  while ((match = re.exec(raw))) {
+    attrs[match[1]] = match[2];
+  }
+  return attrs;
+}
+
+function isSelfClosing(raw) {
+  return /\/\s*$/.test(String(raw).trim());
+}
+
+function hillFormula(atoms) {
+  const counts = {};
+  for (const atom of atoms) {
+    counts[atom.symbol] = (counts[atom.symbol] || 0) + 1;
+    if (atom.hydrogens) counts.H = (counts.H || 0) + atom.hydrogens;
+  }
+  const keys = Object.keys(counts);
+  if (!keys.length) return "";
+  const ordered = [];
+  if (counts.C) {
+    ordered.push("C");
+    if (counts.H) ordered.push("H");
+    for (const key of keys.filter((k) => k !== "C" && k !== "H").sort()) {
+      ordered.push(key);
+    }
+  } else {
+    for (const key of keys.sort()) ordered.push(key);
+  }
+  return ordered
+    .map((key) => (counts[key] === 1 ? key : `${key}${counts[key]}`))
+    .join("");
+}
+
+function countPhrase(n, word) {
+  return n === 1 ? `1 ${word}` : `${n} ${word}s`;
+}
+
+function buildFragments(atoms, bonds) {
+  const groups = new Map();
+  for (const atom of atoms) {
+    const id = atom.fragmentId || "1";
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(atom);
+  }
+  if (!groups.size && bonds.length) {
+    groups.set("1", []);
+  }
+  const fragments = [];
+  for (const [id, group] of groups) {
+    const x =
+      group.reduce((sum, atom) => sum + atom.x, 0) / Math.max(group.length, 1);
+    const y =
+      group.reduce((sum, atom) => sum + atom.y, 0) / Math.max(group.length, 1);
+    fragments.push({
+      id,
+      atomIds: group.map((atom) => atom.id),
+      formula: hillFormula(group),
+      x,
+      y,
+    });
+  }
+  fragments.sort((a, b) => a.x - b.x || Number(a.id) - Number(b.id));
+  return fragments;
+}
+
+function isArrowValue(value) {
+  return ARROW_TEXT.test(String(value).trim());
+}
+
+function assignScheme(fragments, texts) {
+  const reagents = texts
+    .map((text) => text.value.trim())
+    .filter((value) => value && !isArrowValue(value));
+  if (fragments.length >= 2) {
+    let splitAt = 0;
+    let bestGap = -1;
+    for (let i = 0; i < fragments.length - 1; i += 1) {
+      const gap = fragments[i + 1].x - fragments[i].x;
+      if (gap > bestGap) {
+        bestGap = gap;
+        splitAt = i;
+      }
+    }
+    return {
+      reactants: fragments.slice(0, splitAt + 1).map((frag) => frag.formula),
+      products: fragments.slice(splitAt + 1).map((frag) => frag.formula),
+      reagents,
+      conditions: [],
+    };
+  }
+  return {
+    reactants: fragments.map((frag) => frag.formula).filter(Boolean),
+    products: [],
+    reagents,
+    conditions: [],
+  };
+}
+
+function finishDoc(format, atoms, bonds, texts) {
+  if (!atoms.length && !bonds.length && !texts.length) {
+    return emptyDoc(format, "No atoms, bonds, or text in this ChemDraw file.");
+  }
+  const fragments = buildFragments(atoms, bonds);
+  const scheme = assignScheme(fragments, texts);
+  const label = format === "cdx" ? "CDX" : "CDXML";
+  return {
+    status: "ok",
+    kind: "chemdraw",
+    format,
+    atoms,
+    bonds,
+    texts,
+    fragments,
+    reactants: scheme.reactants,
+    products: scheme.products,
+    reagents: scheme.reagents,
+    conditions: scheme.conditions,
+    message: `ChemDraw ${label} · ${countPhrase(atoms.length, "atom")} · ${countPhrase(bonds.length, "bond")} · ${countPhrase(texts.length, "text")} · ${countPhrase(fragments.length, "fragment")}`,
+  };
+}
+
+function parseCdxml(text) {
+  const atoms = [];
+  const bonds = [];
+  const texts = [];
+  const fragmentStack = [];
+  let fragmentSeq = 0;
+  let textSeq = 0;
+  let implicitFragment = "";
+  let nodeDepth = 0;
+  let caption = null;
+
+  function currentFragment() {
+    if (fragmentStack.length) return fragmentStack[fragmentStack.length - 1];
+    if (!implicitFragment) {
+      fragmentSeq += 1;
+      implicitFragment = String(fragmentSeq);
+    }
+    return implicitFragment;
+  }
+
+  function openFragment() {
+    fragmentSeq += 1;
+    fragmentStack.push(String(fragmentSeq));
+  }
+
+  const tokenRe =
+    /<!--[\s\S]*?-->|<!DOCTYPE[^>]*>|<\?[\s\S]*?\?>|<\/([A-Za-z_][\w:.-]*)\s*>|<([A-Za-z_][\w:.-]*)([^>]*)>|([^<]+)/g;
+  let match;
+  while ((match = tokenRe.exec(text))) {
+    if (match[1]) {
+      const name = match[1].toLowerCase();
+      if (name === "fragment") fragmentStack.pop();
+      if (name === "n") nodeDepth = Math.max(0, nodeDepth - 1);
+      if (name === "t" && caption && !caption.insideNode) {
+        const value = caption.value.trim();
+        if (value) {
+          textSeq += 1;
+          texts.push({
+            id: caption.id || String(textSeq),
+            value,
+            x: caption.x,
+            y: caption.y,
+          });
+        }
+        caption = null;
+      }
+      continue;
+    }
+    if (match[2]) {
+      const name = match[2].toLowerCase();
+      const raw = match[3] || "";
+      const attrs = parseAttrs(raw);
+      const self = isSelfClosing(raw);
+      if (name === "fragment") {
+        openFragment();
+        if (self) fragmentStack.pop();
+        continue;
+      }
+      if (name === "n") {
+        const pos = parsePoint(attrs.p);
+        const element = attrs.Element != null ? Number(attrs.Element) : 6;
+        const charge = attrs.Charge != null ? Number(attrs.Charge) : 0;
+        const hydrogens =
+          attrs.NumHydrogens != null ? Number(attrs.NumHydrogens) : 0;
+        atoms.push({
+          id: String(attrs.id ?? atoms.length + 1),
+          element: Number.isFinite(element) ? element : 6,
+          symbol: symbolFor(Number.isFinite(element) ? element : 6),
+          x: pos.x,
+          y: pos.y,
+          charge: Number.isFinite(charge) ? charge : 0,
+          hydrogens: Number.isFinite(hydrogens) ? hydrogens : 0,
+          fragmentId: currentFragment(),
+        });
+        if (!self) nodeDepth += 1;
+        continue;
+      }
+      if (name === "b") {
+        const order = attrs.Order != null ? Number(attrs.Order) : 1;
+        const display = String(attrs.Display || "solid").toLowerCase();
+        bonds.push({
+          id: String(attrs.id ?? bonds.length + 1),
+          begin: String(attrs.B ?? ""),
+          end: String(attrs.E ?? ""),
+          order: Number.isFinite(order) ? order : 1,
+          display: display || "solid",
+          fragmentId: currentFragment(),
+        });
+        continue;
+      }
+      if (name === "t") {
+        const pos = parsePoint(attrs.p);
+        caption = {
+          id: attrs.id ? String(attrs.id) : "",
+          value: "",
+          x: pos.x,
+          y: pos.y,
+          insideNode: nodeDepth > 0,
+        };
+        if (self) caption = null;
+        continue;
+      }
+      continue;
+    }
+    if (match[4] && caption && !caption.insideNode) {
+      caption.value += decodeEntities(match[4]);
+    }
+  }
+  return finishDoc("cdxml", atoms, bonds, texts);
+}
+
+function readI16(bytes, offset) {
+  const value = bytes[offset] | (bytes[offset + 1] << 8);
+  return value > 0x7fff ? value - 0x10000 : value;
+}
+
+function readU16(bytes, offset) {
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function readU32(bytes, offset) {
+  return (
+    bytes[offset] |
+    (bytes[offset + 1] << 8) |
+    (bytes[offset + 2] << 16) |
+    (bytes[offset + 3] << 24)
+  ) >>> 0;
+}
+
+function readI32(bytes, offset) {
+  const value = readU32(bytes, offset);
+  return value > 0x7fffffff ? value - 0x100000000 : value;
+}
+
+function readI8(bytes, offset) {
+  const value = bytes[offset];
+  return value > 0x7f ? value - 0x100 : value;
+}
+
+function decodeCdxString(data) {
+  if (data.length < 2) return "";
+  const styles = readU16(data, 0);
+  const start = 2 + styles * 10;
+  if (start > data.length) return "";
+  let text = "";
+  for (let i = start; i < data.length; i += 1) {
+    text += String.fromCharCode(data[i]);
+  }
+  return text;
+}
+
+function readPoint(data) {
+  if (data.length < 8) return { x: 0, y: 0 };
+  return {
+    y: readI32(data, 0) / 65536,
+    x: readI32(data, 4) / 65536,
+  };
+}
+
+function parseCdxTree(bytes) {
+  let offset = CDX_HEADER_LEN;
+
+  function need(n) {
+    return offset + n <= bytes.length;
+  }
+
+  function takeU16() {
+    if (!need(2)) return 0;
+    const value = readU16(bytes, offset);
+    offset += 2;
+    return value;
+  }
+
+  function takeU32() {
+    if (!need(4)) return 0;
+    const value = readU32(bytes, offset);
+    offset += 4;
+    return value;
+  }
+
+  function walkObject(kind, id) {
+    const props = {};
+    const children = [];
+    while (need(2)) {
+      const tag = takeU16();
+      if (tag === 0) break;
+      if (tag & 0x8000) {
+        const childId = takeU32();
+        children.push(walkObject(tag, childId));
+        continue;
+      }
+      let len = takeU16();
+      if (len === 0xffff) len = takeU32();
+      if (!need(len)) break;
+      props[tag] = bytes.subarray(offset, offset + len);
+      offset += len;
+    }
+    return { kind, id, props, children };
+  }
+
+  const roots = [];
+  while (need(2)) {
+    const tag = takeU16();
+    if (tag === 0) break;
+    if (tag & 0x8000) {
+      const id = takeU32();
+      roots.push(walkObject(tag, id));
+      continue;
+    }
+    let len = takeU16();
+    if (len === 0xffff) len = takeU32();
+    offset += len;
+  }
+  return roots;
+}
