@@ -1,60 +1,94 @@
 <body>
 <div class="atmosphere" aria-hidden="true"></div>
 <div class="stage">
-  <header class="top">
-    <a class="brand" href="/" aria-label="scheme 1 home">
-      <img class="brand-mark" src="assets/brand/icon.svg" width="36" height="36" alt=""/>
-      <img class="brand-word" src="assets/brand/wordmark.svg" width="132" height="28" alt="scheme 1"/>
-    </a>
-    <p class="tag">Paste the reaction. Get the scheme.</p>
-  </header>
-
-  <main>
-    <section class="intake" aria-labelledby="intake-title">
-      <h1 id="intake-title" class="sr-only">Reaction intake</h1>
-      <label class="field">
-        <span class="label">Paste reaction text or SMILES</span>
-        <textarea id="intake" rows="4" placeholder="PhCOOH + MeOH → PhCOOMe + H2O"></textarea>
-      </label>
-      <div class="row">
-        <button type="button" id="parse-btn" class="primary">Parse</button>
-        <button type="button" id="clear-btn" class="ghost">Clear</button>
-        <label class="file">
-          <span>ChemDraw</span>
-          <input id="cdx-file" type="file" accept=".cdxml,.cdx,chemical/x-cdxml,chemical/x-cdx"/>
-        </label>
+  <main class="panel" id="instrument-panel">
+    <div class="brand-row">
+      <div class="brand" aria-label="scheme 1">
+        <img src="assets/brand/wordmark.svg" alt="scheme 1" width="150" height="40"/>
       </div>
-      <p id="status" class="status" role="status">Add a reactant and a product, or paste a reaction.</p>
+    </div>
+    <hr class="panel-rule"/>
+
+    <p class="lead">Paste the reaction. Get the scheme.</p>
+    <label for="reaction">
+      <span class="lbl">Reaction</span>
+      <textarea id="reaction" rows="1" spellcheck="false" placeholder="Paste reaction or SMILES"></textarea>
+    </label>
+    <label for="conditions">
+      <span class="lbl">Conditions <span class="opt">(optional)</span></span>
+      <input id="conditions" type="text" spellcheck="false" placeholder="H2SO4, reflux"/>
+    </label>
+    <p class="status" id="parse-status" role="status" aria-live="polite">Paste a reaction.</p>
+    <label class="drop" id="chemdraw-drop" for="chemdraw-file">
+      <span class="lbl">ChemDraw</span>
+      <input id="chemdraw-file" type="file" accept=".cdxml,.cdx,chemical/x-cdxml,chemical/x-cdx"/>
+      <span class="drop-target" id="chemdraw-target">Drop a .cdxml or .cdx file, or click to choose.</span>
+    </label>
+    <p class="status" id="chemdraw-status" role="status" aria-live="polite"></p>
+    <section class="extract" id="extract-panel" hidden aria-label="ChemDraw extract">
+      <span class="lbl">Extract <span class="opt">atoms, bonds, text</span></span>
+      <p class="extract-counts" id="extract-counts"></p>
+      <ul class="extract-species" id="extract-species"></ul>
+      <svg class="atom-graph" id="atom-graph" viewBox="0 0 320 120" aria-hidden="true"></svg>
+      <details id="extract-json-wrap">
+        <summary>JSON preview</summary>
+        <pre id="extract-json"></pre>
+      </details>
     </section>
 
-    <section class="editor" aria-labelledby="editor-title">
-      <h2 id="editor-title">Edit scheme</h2>
-      <div class="editor-grid">
-        <div>
-          <div class="editor-head"><span>Reactants</span><button type="button" data-add="reactant" class="ghost">+</button></div>
-          <div id="editor-reactants" class="editor-list"></div>
+    <div class="demos">
+      <div class="demo-label">Try a demo</div>
+      <div class="demo-row">
+        <button type="button" class="example" data-example="fischer">Fischer</button>
+        <button type="button" class="example" data-example="redamin">Reductive amination</button>
+        <button type="button" class="example" data-example="snar">SNAr</button>
+        <button type="button" class="example" data-example="suzuki">Suzuki</button>
+        <button type="button" class="example" data-example="acetyl">Acylation</button>
+        <button type="button" class="example" data-example="smiles">A&gt;&gt;B</button>
+      </div>
+      <div class="demo-row">
+        <button type="button" class="example" data-sample="fixtures/methanol.cdxml">Methanol .cdxml</button>
+        <button type="button" class="example" data-sample="fixtures/esterification.cdxml">Ester .cdxml</button>
+        <button type="button" class="example" data-sample="fixtures/methanol.cdx">Methanol .cdx</button>
+      </div>
+    </div>
+
+    <section id="scheme-editor" aria-label="Reaction editor">
+      <div class="editor">
+        <div class="editor-stack">
+          <span class="lbl">Reactants</span>
+          <div id="editor-reactants"></div>
+          <button type="button" class="example" data-add="reactant">Add reactant</button>
         </div>
-        <div>
-          <div class="editor-head"><span>Products</span><button type="button" data-add="product" class="ghost">+</button></div>
-          <div id="editor-products" class="editor-list"></div>
+        <div class="editor-stack">
+          <span class="lbl">Reagents <span class="opt">(above arrow)</span></span>
+          <div id="editor-reagents"></div>
+          <button type="button" class="example" data-add="reagent">Add reagent</button>
         </div>
-        <div>
-          <div class="editor-head"><span>Reagents</span><button type="button" data-add="reagent" class="ghost">+</button></div>
-          <div id="editor-reagents" class="editor-list"></div>
+        <div class="editor-stack">
+          <span class="lbl">Products</span>
+          <div id="editor-products"></div>
+          <button type="button" class="example" data-add="product">Add product</button>
         </div>
       </div>
     </section>
 
-    <section class="preview" aria-labelledby="preview-title">
-      <div class="preview-head">
-        <h2 id="preview-title">Scheme stage</h2>
-        <div class="exports">
-          <button type="button" id="download-png" class="primary" disabled>PNG</button>
-          <button type="button" id="download-cdxml" class="ghost" disabled>CDXML</button>
-        </div>
+    <section class="scheme-stage" aria-label="Reaction scheme">
+      <div class="scheme-tools">
+        <button type="button" class="cta" id="draw" disabled>redraw</button>
       </div>
-      <div id="scheme-stage" class="scheme-stage empty" aria-live="polite"></div>
+      <div class="scheme-scroll">
+        <div id="scheme-stage" class="empty">Paste a reaction — or try a demo.</div>
+      </div>
     </section>
+
+    <div class="actions">
+      <button type="button" id="download-png" disabled>Download PNG</button>
+      <button type="button" class="ghost" id="download-cdxml" disabled>Download CDXML</button>
+    </div>
+    <p class="after">Layout PNG is the first try and stays free. CDXML and hi-res use 2 free exports per month, then credits.</p>
+    <p class="after" id="after-download" hidden></p>
+    <footer>scheme 1 · paste · drop · demos · scheme · download</footer>
   </main>
 </div>
 <script src="vendor/smiles-drawer.min.js"></script>
