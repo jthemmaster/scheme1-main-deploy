@@ -1,0 +1,141 @@
+
+function flattenCdx(roots) {
+  const atoms = [];
+  const bonds = [];
+  const texts = [];
+  let fragmentSeq = 0;
+  let implicitFragment = "";
+
+  function nextFragment() {
+    fragmentSeq += 1;
+    return String(fragmentSeq);
+  }
+
+  function visit(node, fragmentId, insideNode) {
+    let nextFragmentId = fragmentId;
+    let nextInside = insideNode;
+    if (node.kind === CDX_OBJ_FRAGMENT) {
+      nextFragmentId = nextFragment();
+    }
+    if (node.kind === CDX_OBJ_NODE) {
+      if (!nextFragmentId) {
+        if (!implicitFragment) implicitFragment = nextFragment();
+        nextFragmentId = implicitFragment;
+      }
+      const elementData = node.props[CDX_PROP_ELEMENT];
+      const element = elementData ? readI16(elementData, 0) : 6;
+      const chargeData = node.props[CDX_PROP_CHARGE];
+      const hydroData = node.props[CDX_PROP_HYDROGENS];
+      const pos = node.props[CDX_PROP_2D]
+        ? readPoint(node.props[CDX_PROP_2D])
+        : { x: 0, y: 0 };
+      atoms.push({
+        id: String(node.id),
+        element,
+        symbol: symbolFor(element),
+        x: pos.x,
+        y: pos.y,
+        charge: chargeData ? readI8(chargeData, 0) : 0,
+        hydrogens: hydroData ? readU16(hydroData, 0) : 0,
+        fragmentId: nextFragmentId,
+      });
+      nextInside = true;
+    }
+    if (node.kind === CDX_OBJ_BOND) {
+      if (!nextFragmentId) {
+        if (!implicitFragment) implicitFragment = nextFragment();
+        nextFragmentId = implicitFragment;
+      }
+      const begin = node.props[CDX_PROP_BOND_BEGIN];
+      const end = node.props[CDX_PROP_BOND_END];
+      const order = node.props[CDX_PROP_BOND_ORDER];
+      const display = node.props[CDX_PROP_BOND_DISPLAY];
+      bonds.push({
+        id: String(node.id),
+        begin: begin ? String(readU32(begin, 0)) : "",
+        end: end ? String(readU32(end, 0)) : "",
+        order: order ? readI16(order, 0) : 1,
+        display: BOND_DISPLAY[display ? readI16(display, 0) : 0] || "solid",
+        fragmentId: nextFragmentId,
+      });
+    }
+    if (node.kind === CDX_OBJ_TEXT && !insideNode) {
+      const pos = node.props[CDX_PROP_2D]
+        ? readPoint(node.props[CDX_PROP_2D])
+        : { x: 0, y: 0 };
+      const value = node.props[CDX_PROP_TEXT]
+        ? decodeCdxString(node.props[CDX_PROP_TEXT]).trim()
+        : "";
+      if (value) {
+        texts.push({
+          id: String(node.id),
+          value,
+          x: pos.x,
+          y: pos.y,
+        });
+      }
+    }
+    for (const child of node.children) {
+      visit(child, nextFragmentId, nextInside);
+    }
+  }
+
+  for (const root of roots) visit(root, "", false);
+  return { atoms, bonds, texts };
+}
+
+function parseCdx(bytes) {
+  if (bytes.length < CDX_HEADER_LEN) {
+    return emptyDoc("cdx", "Not a ChemDraw .cdxml or .cdx file.");
+  }
+  const { atoms, bonds, texts } = flattenCdx(parseCdxTree(bytes));
+  return finishDoc("cdx", atoms, bonds, texts);
+}
+
+export function parseChemDraw(input = {}) {
+  const name = String(input.name ?? "");
+  const bytes = toBytes(input.bytes);
+  if (!bytes.length) {
+    return emptyDoc("unknown", "Drop a .cdxml or .cdx file.");
+  }
+  if (looksLikeCdx(bytes)) return parseCdx(bytes);
+  if (looksLikeCdxml(bytes, name)) return parseCdxml(decodeUtf8(bytes));
+  return emptyDoc("unknown", "Not a ChemDraw .cdxml or .cdx file.");
+}
+
+export function extractPreview(doc) {
+  return {
+    format: doc.format,
+    atoms: doc.atoms.length,
+    bonds: doc.bonds.length,
+    texts: doc.texts.length,
+    fragments: (doc.fragments ?? []).map((frag) => frag.formula),
+    captions: (doc.texts ?? []).map((text) => text.value),
+    species: {
+      reactants: doc.reactants ?? [],
+      products: doc.products ?? [],
+      reagents: doc.reagents ?? [],
+    },
+  };
+}
+
+function asToken(value) {
+  if (value && typeof value === "object") {
+    const smiles = String(value.smiles ?? "").trim();
+    const label = String(value.label ?? smiles).trim();
+    return smiles ? { label: label || smiles, smiles } : { label };
+  }
+  return { label: String(value ?? "") };
+}
+
+export function toSchemeIntake(doc) {
+  return {
+    status: doc.status,
+    kind: "chemdraw",
+    reactants: (doc.reactants ?? []).map(asToken),
+    products: (doc.products ?? []).map(asToken),
+    reagents: (doc.reagents ?? []).map(asToken),
+    conditions: [...(doc.conditions ?? [])],
+    message: doc.message,
+  };
+}
