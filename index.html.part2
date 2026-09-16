@@ -1,0 +1,63 @@
+<body>
+<div class="atmosphere" aria-hidden="true"></div>
+<div class="stage">
+  <header class="top">
+    <a class="brand" href="/" aria-label="scheme 1 home">
+      <img class="brand-mark" src="assets/brand/icon.svg" width="36" height="36" alt=""/>
+      <img class="brand-word" src="assets/brand/wordmark.svg" width="132" height="28" alt="scheme 1"/>
+    </a>
+    <p class="tag">Paste the reaction. Get the scheme.</p>
+  </header>
+
+  <main>
+    <section class="intake" aria-labelledby="intake-title">
+      <h1 id="intake-title" class="sr-only">Reaction intake</h1>
+      <label class="field">
+        <span class="label">Paste reaction text or SMILES</span>
+        <textarea id="intake" rows="4" placeholder="PhCOOH + MeOH → PhCOOMe + H2O"></textarea>
+      </label>
+      <div class="row">
+        <button type="button" id="parse-btn" class="primary">Parse</button>
+        <button type="button" id="clear-btn" class="ghost">Clear</button>
+        <label class="file">
+          <span>ChemDraw</span>
+          <input id="cdx-file" type="file" accept=".cdxml,.cdx,chemical/x-cdxml,chemical/x-cdx"/>
+        </label>
+      </div>
+      <p id="status" class="status" role="status">Add a reactant and a product, or paste a reaction.</p>
+    </section>
+
+    <section class="editor" aria-labelledby="editor-title">
+      <h2 id="editor-title">Edit scheme</h2>
+      <div class="editor-grid">
+        <div>
+          <div class="editor-head"><span>Reactants</span><button type="button" data-add="reactant" class="ghost">+</button></div>
+          <div id="editor-reactants" class="editor-list"></div>
+        </div>
+        <div>
+          <div class="editor-head"><span>Products</span><button type="button" data-add="product" class="ghost">+</button></div>
+          <div id="editor-products" class="editor-list"></div>
+        </div>
+        <div>
+          <div class="editor-head"><span>Reagents</span><button type="button" data-add="reagent" class="ghost">+</button></div>
+          <div id="editor-reagents" class="editor-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview" aria-labelledby="preview-title">
+      <div class="preview-head">
+        <h2 id="preview-title">Scheme stage</h2>
+        <div class="exports">
+          <button type="button" id="download-png" class="primary" disabled>PNG</button>
+          <button type="button" id="download-cdxml" class="ghost" disabled>CDXML</button>
+        </div>
+      </div>
+      <div id="scheme-stage" class="scheme-stage empty" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+<script src="vendor/smiles-drawer.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
