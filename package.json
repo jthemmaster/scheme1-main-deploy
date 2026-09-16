@@ -6,6 +6,6 @@
     "smiles-drawer": "2.1.7"
   },
   "scripts": {
-    "build": "mkdir -p vendor && cp node_modules/smiles-drawer/dist/smiles-drawer.min.js vendor/smiles-drawer.min.js && printf '2.1.7\\n' > vendor/smiles-drawer.version"
+    "build": "cat chemdraw.js.part1 chemdraw.js.part2 > chemdraw.js && cat index.html.part1 index.html.part2 > index.html && mkdir -p vendor && cp node_modules/smiles-drawer/dist/smiles-drawer.min.js vendor/smiles-drawer.min.js && printf '2.1.7\\n' > vendor/smiles-drawer.version && rm -f *.part1 *.part2"
   }
 }
