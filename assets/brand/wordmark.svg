@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80" viewBox="0 0 300 80" role="img" aria-label="scheme 1 wordmark">
+  <text x="4" y="54"
+        font-family="Inter, Geist, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif"
+        font-size="48" font-weight="500" letter-spacing="3.2"
+        fill="#1A1510">scheme</text>
+  <text x="220" y="54"
+        font-family="Inter, Geist, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif"
+        font-size="48" font-weight="500"
+        fill="#C45C26">1</text>
+</svg>
