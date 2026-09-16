@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE CDXML SYSTEM "http://www.cambridgesoft.com/xml/cdxml.dtd">
+<CDXML CreationProgram="Scheme 1">
+  <page>
+    <fragment>
+      <n id="1" Element="6" p="20.00 40.00" NumHydrogens="3"/>
+      <n id="2" Element="8" p="40.00 40.00" NumHydrogens="1"/>
+      <b id="3" B="1" E="2" Order="1"/>
+    </fragment>
+    <t p="30.00 60.00"><s>MeOH</s></t>
+  </page>
+</CDXML>
