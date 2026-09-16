@@ -1,0 +1,248 @@
+/**
+ * Scheme 1 — scheme-stage tokens
+ * RECONCILED with Tina paper refs · 2026-09-16
+ * Brand lock: Bench Warm — /workspace/scheme1-brand/bench-warm/BRAND.md
+ * Authority: /workspace/scheme-refs/BRIEF.md (Tina’s 5 principles)
+ * Primary: bjc14-179-scheme1.jpg (+ scheme16, scheme31)
+ * Also: natchem-2022-hydride-fig3.jpg, jacs-2023-allenes-scheme1.jpg,
+ *       jacs-2024-archangiumide-scheme2.jpg
+ * Pair with TOKENS.md + SPEC.md. No lilac. No Night Cyan. Wordmark only.
+ * Copper = CTA chrome only — NOT bond-highlight red.
+ */
+
+:root {
+  /* —— Locked brand (UI chrome) —— */
+  --paper: #f7f4ef;
+  --paper-2: #e8e2d6;
+  --ink: #1a1510;
+  --copper: #c45c26;
+  --copper-dim: #9a4318;
+  --hood: #1f6b5a;
+  --mute: #5c5348;
+
+  /* —— Scheme-content accents (publication plate) —— */
+  --scheme-accent: #c41e3a; /* new bond / tracked atom — ACS letter red */
+  --scheme-ghost: #b5ada2; /* unchanged scaffold */
+  --scheme-focus: var(--ink); /* new fragment when ghosting */
+  --scheme-focus-accent: var(--scheme-accent);
+  --scheme-meta: var(--mute); /* yields / ee screen default */
+  --scheme-meta-pub: #1a5fa8; /* optional export blue (archangiumide) */
+
+  /* —— Fonts —— */
+  --font-scheme: Helvetica, Arial, "Helvetica Neue", system-ui, sans-serif;
+  --font-ui: Inter, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: Inter, Geist, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  /* —— Type scale (scheme plate ≈ ACS 7–9 pt) —— */
+  --type-scheme-label-size: 11px;
+  --type-scheme-label-weight: 700;
+  --type-atom-size: 10px;
+  --type-atom-weight: 600;
+  --type-condition-size: 11px;
+  --type-condition-weight: 500;
+  --type-reagent-size: 11px;
+  --type-reagent-weight: 400;
+  --type-condition-below-size: 10px;
+  --type-condition-below-weight: 400;
+  --type-scheme-meta-size: 11px;
+  --type-scheme-meta-weight: 700;
+  --type-scope-id-size: 11px;
+  --type-scope-id-weight: 700;
+  --type-ui-size: 14px;
+  --type-ui-weight: 400;
+  --type-ui-meta-size: 12px;
+  --type-ui-meta-weight: 500;
+  --type-mono-size: 15px;
+  --type-cond-line-height: 1.15;
+
+  /* —— Spacing —— */
+  --space-plate-pad: 28px;
+  --space-plate-pad-sm: 16px;
+  --space-bond-gap: 2px;
+  --space-frag-gap: 28px;
+  --space-arrow-len: 96px;
+  --space-arrow-head: 8px;
+  --space-cond-gap: 2px;
+  --space-cond-above: 6px;
+  --space-cond-below: 6px;
+  --space-label-below: 10px;
+  --space-scope-col: 32px;
+  --space-scope-stack: 4px;
+  --space-cycle-radius: 120px;
+  --space-chapter-rule: 12px;
+
+  /* —— Arrow + bonds —— */
+  --stroke-scheme: 1.5px;
+  --stroke-scheme-accent: 2px;
+  --stroke-scheme-selected: 2px;
+  --color-bond: var(--ink);
+  --color-bond-new: var(--scheme-accent);
+  --color-bond-ghost: var(--scheme-ghost);
+  --color-bond-focus: var(--scheme-focus);
+  --color-arrow: var(--ink);
+  --color-condition: var(--ink);
+  --color-reagent: var(--ink);
+  --color-condition-below: var(--mute);
+  --color-condition-mute: var(--mute);
+  --color-scheme-meta: var(--scheme-meta);
+
+  /* —— Layout mode hints —— */
+  --chapter-rule: 1px dashed var(--mute);
+  --scope-align: center;
+
+  /* —— Scheme stage surface —— */
+  --stage-bg: var(--paper);
+  --stage-inset: #fffcfa;
+  --stage-border: rgba(26, 21, 16, 0.07);
+  --stage-border-hi: rgba(255, 255, 255, 0.5);
+  --stage-radius: 14px;
+  --stage-shadow: 0 18px 28px rgba(26, 21, 16, 0.08);
+  --chrome-bg: rgba(255, 252, 250, 0.92);
+  --export-bg: #ffffff;
+
+  /* —— Interactive editor (light) —— */
+  --edit-hover: rgba(196, 92, 38, 0.45);
+  --edit-hover-fill: rgba(196, 92, 38, 0.08);
+  --edit-selected: rgba(31, 107, 90, 0.55);
+  --edit-selected-fill: rgba(31, 107, 90, 0.1);
+  --edit-focus: 0 0 0 2px rgba(196, 92, 38, 0.35);
+  --edit-marquee: rgba(26, 21, 16, 0.12);
+  --edit-hit: 12px;
+}
+
+/* Optional utility hooks for Lingxi / product chrome */
+
+.scheme-stage {
+  background: var(--stage-bg);
+  border: 1px solid var(--stage-border);
+  border-radius: var(--stage-radius);
+  box-shadow: var(--stage-shadow);
+  padding: var(--space-plate-pad);
+  color: var(--ink);
+}
+
+.scheme-stage--export {
+  background: var(--export-bg);
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+}
+
+.scheme-stage__label {
+  font-family: var(--font-scheme);
+  font-size: var(--type-scheme-label-size);
+  font-weight: var(--type-scheme-label-weight);
+  color: var(--mute);
+  line-height: var(--type-cond-line-height);
+}
+
+.scheme-stage__atom {
+  font-family: var(--font-scheme);
+  font-size: var(--type-atom-size);
+  font-weight: var(--type-atom-weight);
+  fill: var(--ink);
+}
+
+.scheme-stage__atom.is-ghost {
+  fill: var(--scheme-ghost);
+}
+
+.scheme-stage__condition {
+  font-family: var(--font-scheme);
+  font-size: var(--type-condition-size);
+  font-weight: var(--type-condition-weight);
+  color: var(--color-condition);
+  line-height: var(--type-cond-line-height);
+}
+
+.scheme-stage__condition--below {
+  font-size: var(--type-condition-below-size);
+  font-weight: var(--type-condition-below-weight);
+  color: var(--color-condition-below);
+}
+
+.scheme-stage__reagent {
+  font-family: var(--font-scheme);
+  font-size: var(--type-reagent-size);
+  font-weight: var(--type-reagent-weight);
+  color: var(--color-reagent);
+  line-height: var(--type-cond-line-height);
+}
+
+.scheme-stage__meta {
+  font-family: var(--font-scheme);
+  font-size: var(--type-scheme-meta-size);
+  font-weight: var(--type-scheme-meta-weight);
+  color: var(--color-scheme-meta);
+  line-height: var(--type-cond-line-height);
+  text-align: var(--scope-align);
+}
+
+.scheme-stage__meta--pub {
+  color: var(--scheme-meta-pub);
+}
+
+.scheme-stage__scope-id {
+  font-family: var(--font-scheme);
+  font-size: var(--type-scope-id-size);
+  font-weight: var(--type-scope-id-weight);
+  color: var(--ink);
+  text-align: var(--scope-align);
+}
+
+.scheme-stage__scope-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--space-scope-col);
+  text-align: var(--scope-align);
+}
+
+.scheme-stage__scope-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-scope-stack);
+}
+
+.scheme-stage__bond,
+.scheme-stage__arrow {
+  stroke: var(--color-bond);
+  stroke-width: var(--stroke-scheme);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.scheme-stage__bond.is-new {
+  stroke: var(--color-bond-new);
+  stroke-width: var(--stroke-scheme-accent);
+}
+
+.scheme-stage__bond.is-ghost,
+.scheme-stage__atom-hit.is-ghost {
+  stroke: var(--color-bond-ghost);
+}
+
+.scheme-stage__bond.is-focus {
+  stroke: var(--color-bond-focus);
+}
+
+.scheme-stage__bond.is-hover,
+.scheme-stage__atom-hit.is-hover {
+  stroke: var(--edit-hover);
+}
+
+.scheme-stage__bond.is-selected,
+.scheme-stage__atom-hit.is-selected {
+  stroke: var(--edit-selected);
+  stroke-width: var(--stroke-scheme-selected);
+}
+
+.scheme-stage__chapter-rule {
+  border: none;
+  border-top: var(--chapter-rule);
+  margin: var(--space-chapter-rule) 0;
+}
